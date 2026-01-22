@@ -595,6 +595,7 @@ namespace AlpacaIT.DynamicLighting
             activeRealtimeLights = new List<DynamicLight>(realtimeLightBudget);
             shaderDynamicLights = new ShaderDynamicLight[totalLightBudget];
             dynamicLightsBuffer = new ComputeBuffer(shaderDynamicLights.Length, dynamicLightStride, ComputeBufferType.Default);
+            ShadersSetGlobalDynamicLights(dynamicLightsBuffer);
 
             // -> partial class DynamicLightManager.PostProcessing initialize.
             PostProcessingInitialize();
@@ -919,6 +920,42 @@ namespace AlpacaIT.DynamicLighting
             PostProcessingReallocateShaderLightBuffer();
         }
 
+        /// <summary>
+        /// Ensures that the shader buffers are valid and attached to the global shader properties.
+        /// This is used during raytracing when the manager is otherwise uninitialized.
+        /// </summary>
+        public void EnsureDummyBuffers()
+        {
+            if (dynamicLightStride == 0)
+                dynamicLightStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(ShaderDynamicLight));
+            
+            if (dynamicLightsBvhNodeStride == 0)
+                dynamicLightsBvhNodeStride = System.Runtime.InteropServices.Marshal.SizeOf(typeof(BvhLightNode));
+
+            if (dynamicLightsBuffer == null || !dynamicLightsBuffer.IsValid())
+            {
+                dynamicLightsBuffer = new ComputeBuffer(1, dynamicLightStride, ComputeBufferType.Default);
+                ShadersSetGlobalDynamicLights(dynamicLightsBuffer);
+            }
+
+            if (dynamicLightsBvhBuffer == null || !dynamicLightsBvhBuffer.IsValid())
+            {
+                dynamicLightsBvhBuffer = new ComputeBuffer(1, dynamicLightsBvhNodeStride, ComputeBufferType.Default);
+                ShadersSetGlobalDynamicLightsBvh(dynamicLightsBvhBuffer);
+            }
+
+            if (dynamicLightsDistanceCubesBuffer == null || !dynamicLightsDistanceCubesBuffer.IsValid())
+            {
+                dynamicLightsDistanceCubesBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Default);
+                dynamicLightsDistanceCubesBuffer.SetData(new uint[] { 0 }); // Initialize with zero
+                ShadersSetGlobalDynamicLightsDistanceCubes(dynamicLightsDistanceCubesBuffer);
+            }
+
+            // dynamic_triangles is usually a per-object buffer, but during baking the temporary scene
+            // objects don't have per-object buffers and rely on the global fallback.
+            Shader.SetGlobalBuffer("dynamic_triangles", dynamicLightsDistanceCubesBuffer);
+        }
+
         /// <summary>Gets the total light budget to be reserved on the graphics card.</summary>
         private int totalLightBudget => Mathf.Max(raycastedDynamicLights.Count + realtimeLightBudget, 1);
 
@@ -1154,7 +1191,10 @@ namespace AlpacaIT.DynamicLighting
             // upload the active light data to the graphics card.
             var activeDynamicLightsCount = raycastedDynamicLightsCount + activeRealtimeLightsCount;
             if (dynamicLightsBuffer != null && dynamicLightsBuffer.IsValid())
+            {
                 dynamicLightsBuffer.SetData(shaderDynamicLights, 0, 0, activeDynamicLightsCount);
+                ShadersSetGlobalDynamicLights(dynamicLightsBuffer);
+            }
             ShadersSetGlobalDynamicLightsCount(raycastedDynamicLightsCount);
             ShadersSetGlobalRealtimeLightsCount(activeRealtimeLightsCount);
 

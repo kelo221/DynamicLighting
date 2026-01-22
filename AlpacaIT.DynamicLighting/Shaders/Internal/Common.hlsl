@@ -1,3 +1,6 @@
+#ifndef DYNAMIC_LIGHTING_COMMON_INCLUDED
+    #define DYNAMIC_LIGHTING_COMMON_INCLUDED
+
 #ifndef UNITY_PI
     #define UNITY_PI 3.14159265
 #endif
@@ -260,6 +263,8 @@ uint minivector3(float3 v)
     return (float8(v.z) << 16) | (float8(v.y) << 8) | float8(v.x);
 }
 
+// note: legacy sampler2D usage here kept for simplicity as it works in HLSL too 
+// assuming TEXTURE2D_ARGS macros aren't mandatory for this specific internal utility
 float texture_alpha_sample_gaussian5(sampler2D tex, float2 texelsize, float2 uv)
 {
     const float weights[5][5] =
@@ -348,3 +353,5 @@ float3 fresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
 {
     return F0 + (max(1.0 - roughness, F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
 }
+
+#endif
