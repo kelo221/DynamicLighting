@@ -751,20 +751,8 @@ namespace AlpacaIT.DynamicLighting
 
         private void Cleanup()
         {
-            if (!isInitialized) return;
-            isInitialized = false;
-
-#if UNITY_EDITOR
-            // in the editor, unsubscribe from the camera rendering functions that repair preview cameras.
-#if UNITY_PIPELINE_URP
-            RenderPipelineManager.beginCameraRendering -= EditorOnPreRenderCallback;
-            RenderPipelineManager.endCameraRendering -= EditorOnPostRenderCallback;
-#else
-            Camera.onPreRender -= EditorOnPreRenderCallback;
-            Camera.onPostRender -= EditorOnPostRenderCallback;
-#endif
-#endif
-
+            // Always clean up buffers first, even if not initialized.
+            // This ensures dummy buffers created during raytracing are properly disposed.
             if (dynamicLightsBuffer != null && dynamicLightsBuffer.IsValid())
             {
                 dynamicLightsBuffer.Release();
@@ -782,6 +770,20 @@ namespace AlpacaIT.DynamicLighting
                 dynamicLightsDistanceCubesBuffer.Release();
                 dynamicLightsDistanceCubesBuffer = null;
             }
+
+            if (!isInitialized) return;
+            isInitialized = false;
+
+#if UNITY_EDITOR
+            // in the editor, unsubscribe from the camera rendering functions that repair preview cameras.
+#if UNITY_PIPELINE_URP
+            RenderPipelineManager.beginCameraRendering -= EditorOnPreRenderCallback;
+            RenderPipelineManager.endCameraRendering -= EditorOnPostRenderCallback;
+#else
+            Camera.onPreRender -= EditorOnPreRenderCallback;
+            Camera.onPostRender -= EditorOnPostRenderCallback;
+#endif
+#endif
 
             // always disable the bounding volume hierarchy in the shader as it's dangerous now.
             shadersKeywordBvhEnabled = false;
@@ -934,30 +936,18 @@ namespace AlpacaIT.DynamicLighting
 
             if (dynamicLightsBuffer == null || !dynamicLightsBuffer.IsValid())
             {
-                // Release the old buffer if it exists but is invalid
-                if (dynamicLightsBuffer != null && !dynamicLightsBuffer.IsValid())
-                    dynamicLightsBuffer.Release();
-                    
                 dynamicLightsBuffer = new ComputeBuffer(1, dynamicLightStride, ComputeBufferType.Default);
                 ShadersSetGlobalDynamicLights(dynamicLightsBuffer);
             }
 
             if (dynamicLightsBvhBuffer == null || !dynamicLightsBvhBuffer.IsValid())
             {
-                // Release the old buffer if it exists but is invalid
-                if (dynamicLightsBvhBuffer != null && !dynamicLightsBvhBuffer.IsValid())
-                    dynamicLightsBvhBuffer.Release();
-                    
                 dynamicLightsBvhBuffer = new ComputeBuffer(1, dynamicLightsBvhNodeStride, ComputeBufferType.Default);
                 ShadersSetGlobalDynamicLightsBvh(dynamicLightsBvhBuffer);
             }
 
             if (dynamicLightsDistanceCubesBuffer == null || !dynamicLightsDistanceCubesBuffer.IsValid())
             {
-                // Release the old buffer if it exists but is invalid
-                if (dynamicLightsDistanceCubesBuffer != null && !dynamicLightsDistanceCubesBuffer.IsValid())
-                    dynamicLightsDistanceCubesBuffer.Release();
-                    
                 dynamicLightsDistanceCubesBuffer = new ComputeBuffer(1, sizeof(uint), ComputeBufferType.Default);
                 dynamicLightsDistanceCubesBuffer.SetData(new uint[] { 0 }); // Initialize with zero
                 ShadersSetGlobalDynamicLightsDistanceCubes(dynamicLightsDistanceCubesBuffer);
