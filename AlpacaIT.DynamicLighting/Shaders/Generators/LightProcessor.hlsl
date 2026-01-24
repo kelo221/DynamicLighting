@@ -124,7 +124,7 @@ else if (bvhLightIndex != -1)
 if (light.is_shadow_available())
 {
     float fragDepth = sqrt(light_distanceSqr / light.radiusSqr);
-    float2 moments = shadow_cubemaps.SampleLevel(sampler_shadow_cubemaps, float4(light_direction, light.shadowCubemapIndex), 0);
+    float2 moments = shadow_cubemaps.SampleLevel(sampler_shadow_cubemaps, float4(light_direction, light.shadowCubemapIndex), 0).xy;
     float E_x2 = moments.y;
     float Ex_2 = moments.x * moments.x;
     float variance = E_x2 - Ex_2;
@@ -167,7 +167,7 @@ if (map != 0.0 || bounce != 0.0)
         {
             float3x3 rot = look_at_matrix(light.forward, light.up);
             float2 world_minus_light_position = mul(light_direction, rot).xy;
-            map *= light_cookies.SampleLevel(sampler_light_cookies, float3(0.5 - light.gpFloat3 * world_minus_light_position * (1.0 / spotlight.x), light.cookieIndex), 0);
+            map *= light_cookies.SampleLevel(sampler_light_cookies, float3(0.5 - light.gpFloat3 * world_minus_light_position * (1.0 / spotlight.x), light.cookieIndex), 0).r;
         }
     }
     else if (light_type == light_type_discoball)

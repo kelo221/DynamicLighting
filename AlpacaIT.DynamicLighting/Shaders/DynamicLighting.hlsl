@@ -264,7 +264,7 @@ struct DynamicLight
         if (light_rotorCenter < 0.0)
         {
             if (distSquared < absRotorCenter)
-                scale *= pow(distSquared / absRotorCenter, UNITY_PI);
+                scale *= pow(max(0.0, distSquared / absRotorCenter), UNITY_PI);
         }
         else
         {
@@ -274,7 +274,7 @@ struct DynamicLight
         }
         
         // clueless why but this makes light and shadow blades equal size.
-        return pow(scale, UNITY_HALF_PI);
+        return pow(abs(scale), UNITY_HALF_PI);
     }
     
     // calculates the shock effect.
