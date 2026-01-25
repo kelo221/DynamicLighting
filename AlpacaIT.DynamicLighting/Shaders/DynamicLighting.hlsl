@@ -153,8 +153,10 @@ struct DynamicLight
     //
     float2 calculate_spotlight(float3 light_direction)
     {
-        float theta = dot(light_direction, forward);
-        float epsilon = light_cutoff - light_outerCutoff;
+        // Saturate dot product to prevent values outside [-1,1] on NVIDIA/Vulkan.
+        float theta = saturate(dot(light_direction, forward) * 0.5 + 0.5) * 2.0 - 1.0;
+        // Add epsilon to prevent division by zero.
+        float epsilon = light_cutoff - light_outerCutoff + 0.00001;
         float intensity = saturate((theta - light_outerCutoff) / epsilon);
         return float2(theta, intensity);
     }
@@ -167,8 +169,10 @@ struct DynamicLight
     //
     float3 calculate_spotlight_bounce(float3 light_direction)
     {
-        float theta = dot(light_direction, forward);
-        float2 epsilon = float2(light_cutoff - light_outerCutoff, light_cutoff + 1.0);
+        // Saturate dot product to prevent values outside [-1,1] on NVIDIA/Vulkan.
+        float theta = saturate(dot(light_direction, forward) * 0.5 + 0.5) * 2.0 - 1.0;
+        // Add epsilon to prevent division by zero.
+        float2 epsilon = float2(light_cutoff - light_outerCutoff + 0.00001, light_cutoff + 1.0 + 0.00001);
         float2 intensity = saturate(float2(theta - light_outerCutoff, theta + 1.0) / epsilon);
         // compute the bounce size factor based on the cutoff angle.
         float spot_size_factor = min(1.0, 1.0 - light_outerCutoff);
@@ -194,8 +198,10 @@ struct DynamicLight
         float3x3 rot = look_at_matrix(forward, up);
 
         float3 rotated_direction = mul(light_direction, rot);
-        float theta = dot(snap_direction(rotated_direction), rotated_direction);
-        float epsilon = light_cutoff - light_outerCutoff;
+        // Saturate dot product to prevent overflow on NVIDIA/Vulkan.
+        float theta = saturate(dot(snap_direction(rotated_direction), rotated_direction) * 0.5 + 0.5) * 2.0 - 1.0;
+        // Add epsilon to prevent division by zero.
+        float epsilon = light_cutoff - light_outerCutoff + 0.00001;
         float intensity = saturate((theta - light_outerCutoff) / epsilon);
         return float2(theta, intensity);
     }
@@ -211,8 +217,10 @@ struct DynamicLight
         float3x3 rot = look_at_matrix(forward, up);
 
         float3 rotated_direction = mul(light_direction, rot);
-        float theta = dot(snap_direction(rotated_direction), rotated_direction);
-        float2 epsilon = float2(light_cutoff - light_outerCutoff, light_cutoff - 0.75);
+        // Saturate dot product to prevent overflow on NVIDIA/Vulkan.
+        float theta = saturate(dot(snap_direction(rotated_direction), rotated_direction) * 0.5 + 0.5) * 2.0 - 1.0;
+        // Add epsilon to prevent division by zero.
+        float2 epsilon = float2(light_cutoff - light_outerCutoff + 0.00001, light_cutoff - 0.75 + 0.00001);
         float2 intensity = saturate(float2(theta - light_outerCutoff, theta - 0.75) / epsilon);
         // compute the bounce size factor based on the cutoff angle.
         float spot_size_factor = min(1.0, (1.0 - light_outerCutoff) * 10.0);
@@ -343,10 +351,13 @@ struct DynamicLight
     
     // special thanks to Nikita Lisitsa https://lisyarus.github.io/blog/posts/point-light-attenuation.html
     // calculates attenuation for the light source.
+    // Note: Added small epsilon to denominator to prevent division by zero on NVIDIA/Vulkan which translates to Infinity/NaN.
     float calculate_attenuation(float distanceSqr)
     {
-        float s = saturate(distanceSqr / radiusSqr);
-        return intensity * pow(1.0 - s, 2.0) / (1.0 + falloff * s);
+        float s = saturate(distanceSqr / (radiusSqr + 0.00001));
+        float attenResult = intensity * pow(1.0 - s, 2.0) / (1.0 + falloff * s + 0.00001);
+        // Clamp result to prevent FP16 overflow (65504 max) which causes NVIDIA overexposure.
+        return min(attenResult, 65000.0);
     }
 
     #define GENERATE_FUNCTION_NAME calculate_randomshimmer_trilinear

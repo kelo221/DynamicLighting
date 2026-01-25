@@ -616,6 +616,12 @@ namespace AlpacaIT.DynamicLighting
             ShadersSetGlobalDynamicLightsCount(0);
             ShadersSetGlobalRealtimeLightsCount(0);
 
+            // Set a global fallback for dynamic_triangles buffer.
+            // D3D12/Vulkan require all declared StructuredBuffers to be bound, even if not accessed.
+            // Dynamic objects (lightmap_resolution == 0) don't use this buffer but need it bound.
+            // Static objects override this via per-object MaterialPropertyBlock.
+            Shader.SetGlobalBuffer("dynamic_triangles", dynamicLightsBuffer);
+
             // unity api oversight: cannot get material count as it's a private method, so to
             // prevent allocations on the garbage collector we recycle a list here.
             var materialsScratchMemory = new List<Material>();

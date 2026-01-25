@@ -27,14 +27,24 @@ namespace AlpacaIT.DynamicLighting
             // Create material here so it persists
             if (_material == null)
             {
-                var shader = Shader.Find("Hidden/DynamicLightingPostProcessing.URP");
+                // First try to get shader from DynamicLightingResources (build-safe, prevents shader stripping)
+                var resources = DynamicLightingResources.Instance;
+                Shader shader = resources?.volumetricFogUrpShader;
+                
+                // Fallback to Shader.Find for editor-only usage (may fail in builds if shader is stripped)
+                if (shader == null)
+                {
+                    shader = Shader.Find("Hidden/DynamicLightingPostProcessing.URP");
+                }
+                
                 if (shader != null)
                 {
                     _material = CoreUtils.CreateEngineMaterial(shader);
                 }
                 else
                 {
-                    Debug.LogError("DynamicLighting: Could not find shader 'Hidden/DynamicLightingPostProcessing.URP'. Make sure the shader compiles without errors.");
+                    Debug.LogError("DynamicLighting: Could not find shader 'Hidden/DynamicLightingPostProcessing.URP'. " +
+                        "Make sure the shader is assigned to DynamicLightingResources.volumetricFogUrpShader in the Resources folder.");
                 }
             }
             

@@ -204,6 +204,10 @@ Shader "Dynamic Lighting/URP/Diffuse"
                 }
                 #endif
 
+                // Clamp lighting to prevent FP16 overflow on NVIDIA/Vulkan (max 65504).
+                // This prevents overexposure artifacts on Linux NVIDIA drivers.
+                light_final = min(light_final, float3(65000.0, 65000.0, 65000.0));
+
                 #ifdef DYNAMIC_LIGHTING_SCENE_VIEW_MODE_LIGHTING
                     // Scene view lighting mode - show lighting only (white albedo)
                     float4 col = float4(1, 1, 1, SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, i_original.uv).a) * float4(1, 1, 1, _Color.a) * float4(light_final, 1) * float4(1, 1, 1, i_original.color.a);
@@ -222,7 +226,9 @@ Shader "Dynamic Lighting/URP/Diffuse"
 
                 col.rgb = MixFog(col.rgb, i_original.fogCoord);
                 
-                return col;
+                // Final clamp: ensure output doesn't exceed valid range for framebuffer.
+                // Critical for NVIDIA/Vulkan which is strict about overflow values.
+                return float4(saturate(col.rgb), col.a);
             }
 
 #else

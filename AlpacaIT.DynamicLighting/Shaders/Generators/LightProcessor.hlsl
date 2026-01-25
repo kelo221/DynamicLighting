@@ -19,12 +19,14 @@ float3 light_position_minus_world = light_direction;
 light_direction = normalize(light_direction);
 
 // depending on the culling mode we flip the normal if we are rendering backsides.
+// Note: We use saturate() on the dot product to prevent values outside [-1,1] which can cause
+// overflow/NaN on NVIDIA Vulkan when the result is used in subsequent calculations.
 #if defined(DYNAMIC_LIGHTING_CULL_OFF)
-    float NdotL = dot(is_front_face ? GENERATE_NORMAL : -GENERATE_NORMAL, light_direction);
+    float NdotL = saturate(dot(is_front_face ? GENERATE_NORMAL : -GENERATE_NORMAL, light_direction) * 0.5 + 0.5) * 2.0 - 1.0;
 #elif defined(DYNAMIC_LIGHTING_CULL_FRONT)
-    float NdotL = dot(-GENERATE_NORMAL, light_direction);
+    float NdotL = saturate(dot(-GENERATE_NORMAL, light_direction) * 0.5 + 0.5) * 2.0 - 1.0;
 #else
-    float NdotL = dot(GENERATE_NORMAL, light_direction);
+    float NdotL = saturate(dot(GENERATE_NORMAL, light_direction) * 0.5 + 0.5) * 2.0 - 1.0;
 #endif
 
 #if defined(DYNAMIC_LIGHTING_DYNAMIC_GEOMETRY_ANGULAR)
@@ -36,18 +38,19 @@ if (lightmap_resolution > 0)
 {
     // static geometry:
     // a simple dot product with the normal gives us diffusion.
-    NdotL = max(NdotL, 0);
+    NdotL = saturate(max(NdotL, 0.0));
 }
 else
 {
     // dynamic geometry:
     // pull the dot product all the way around for half lambert diffusion.
-    NdotL = pow(0.5 + NdotL * 0.5, 2.0);
+    // Clamp to prevent values > 1.0 which can cause overflow on NVIDIA/Vulkan.
+    NdotL = saturate(pow(saturate(0.5 + NdotL * 0.5), 2.0));
 }
 #else
     // static geometry:
     // a simple dot product with the normal gives us diffusion.
-    NdotL = max(NdotL, 0);
+    NdotL = saturate(max(NdotL, 0.0));
 #endif
 
 #if defined(DYNAMIC_LIGHTING_BOUNCE) && !defined(DYNAMIC_LIGHTING_INTEGRATED_GRAPHICS)
